@@ -47,7 +47,7 @@ When creating a new pool, an instantiated instance of the `Consul` class needs t
 
 The base class of this library is the `ServiceInstanceClientPool` object.  This object needs to be provided three things:
 
-+ `serviceId` - the consul-registered service ID the pool instance will be related to.  You can create a `ConsulJaxRsClientPools` per service you wish to use instances of.
++ `serviceId` - the consul-registered service ID the pool instance will be related to.  You can create a `ServiceInstanceClientPool` per service you wish to use instances of.
 + `client` - Any JAX RS client implementation.
 + `consul` - An instantiated instance of the `Consul` object configured to work with your Consul ecosystem.
 
@@ -55,7 +55,7 @@ The base class of this library is the `ServiceInstanceClientPool` object.  This 
 Client client = new JerseyClientBuilder().withConfig(new ClientConfig(JacksonJaxbJsonProvider.class)).build();
 Consul consul = Consul.builder().withHostAndPort(HostAndPort.fromParts("consul.local", 8500)).build();
 
-ConsulJaxRsClientPool pool = new ConsulJaxRsClientPool("my-service", client, consul);
+ServiceInstanceClientPool pool = new ServiceInstanceClientPool("my-service", client, consul);
 ```
 
 ### Using A Client Directly
@@ -65,7 +65,7 @@ To get a client from the pool, simply call the `.next()` method.  If no state is
 The returned client is an implementation of 
 
 ```java
-ConsulJaxRsClient client = pool.next();
+ServiceInstanceClient client = pool.next();
 
 try {
     return client.target("/path/to/something")
