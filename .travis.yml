@@ -5,7 +5,7 @@ jdk:
 
 notifications:
   email:
-  - ozwolf@gmail.com
+    - ozwolf@gmail.com
 
 env:
   global:
