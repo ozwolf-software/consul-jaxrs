@@ -16,10 +16,9 @@ env:
     - secure: gz/JWXTGs7FdPetGhvCxAdzrgJBWxvNg60KIsIpTXICFXUFs+gQIYER/2n5lQdzENqYnXgvPZeQubSBB2bZON3e/PpOwJlg3s2umZw2XIKyl3UzNUSkstW3Y9TfTsrL43Au9LBkS2AGJ2P5aVcORJ4D71NhBGzY/PveQHI4MYM0t2NL1dj0UhS309/PwSv3excS3JVYxDS6AWexdUJZ+xAFA4vsHJBPJux5GbznD6wrIKH3sZ5ffSYF7Od5fmlESvaDRoUhAiiTTE2kaKrfTYGkuIivLTdgpBSn8yhvaEc7Ij0B2W4ehIbIiwbfq6bpENkLCxC7V8+7KmzxAWmpJgq7KUZgbc3b3wOnHKPOHfOT7rDybcqEbd8D9wzV21TlG/DliCchd7rBKfIUnuhto8QGD7Fiv3nWOqT1esoxcShMqeb6Uif65ThKDElkSeOebwMPbC14I9ijcGzUkzGoeeZ83AYNKV+UrWxpFcXgzNVtr1wdaef5FAqD1jsmeZdcyTCrncb6T9Dxcyt4bV91RijU9jsrzlYSxMrPGrZpp8tQj/tdJwwOC7ZpGm/fqTFNlbAChc6h+fIpLpg7Tyivhnwf9DTvDg/pbbEUj2Dzr05xPx3x09pEd99gL1u3ECRLHO82+UaZIkzv/WhWi5tjRBKPKCW+D4/NGcPiYAOXsOy0=
     - secure: C/EQBZQkDICeXoNu0qDcfpDqgojXKH2huGRBGkmQ1shV0PyxrA+cPQp3p+OBu5eYOZ8owesx7UnbrDrTOo0+jNCNOgKMwxfgRTID+ipZUhKwcZlgsuIlss8cfDMoEHCeNBsOuCHDU+3e4zERK4jthxpmvK1L7m12hG4glHXSzj8NYg4RXcplRQI0iaEvFGkvOyiXsh+wLGsiCAovJ5K4RtcF9n8oMCEAg9uoKea3Sp4uNKiGq03d5oR7GJhKK7C/wLYCejPSDneOnD3/MbR6GWm2K8MAMn5xAKfWFpk9YMcAfhWNQjff/lYncdwz30yC9AngPR+6My12ympmaQ2ITXFHrHjSNEy6humWgMaBdiRkzkXJ+5fShIgFw8ldguvXEeAFMdG8wEwZrcKk7srv4vMiNFEE0CfV6XtX7TCVArB6DHtDU472MarbiGna8O2u251qr/kphStFRiMO7509kanmkoGtBd5wPOeXcnPrjQouHKhxuHTkxrBmZ9K4J29fC4G9Jl1Hm3ffLzW4Hl8QnhZAH3kYXZe1cQrf8o7/Pk8tCCyIL54/I8j/fsO3wPOYGzc4Su36tzRgfSWHLMhHD3E60PMuUZDUFG2f9t2NxJ1jRF3A4ndUoUG63KT/IMlUyLPaLAPA9Jt3r1ktb0IYT+G4m/zcu6KMF3Y/sjSZaOM=
 
-before_script:
-  - echo $ENCRYPTION_PASSWORD
-  - openssl aes-256-cbc -pass pass:$ENCRYPTION_PASSWORD -in $GPG_DIR/pubring.gpg.enc -out $GPG_DIR/pubring.gpg -d
-  - openssl aes-256-cbc -pass pass:$ENCRYPTION_PASSWORD -in $GPG_DIR/secring.gpg.enc -out $GPG_DIR/secring.gpg -d
+before_install:
+  - openssl aes-256-cbc -K $encrypted_4152c396a8e7_key -iv $encrypted_4152c396a8e7_iv -in $GPG_DIR/pubring.gpg.enc -out $GPG_DIR/pubring.gpg -d
+  - openssl aes-256-cbc -K $encrypted_4152c396a8e7_key -iv $encrypted_4152c396a8e7_iv -in $GPG_DIR/secring.gpg.enc -out $GPG_DIR/secring.gpg -d
 
 script:
   - mvn -P ossrh clean source:jar deploy --settings travis-settings.xml
