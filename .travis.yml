@@ -17,8 +17,8 @@ env:
     - secure: C/EQBZQkDICeXoNu0qDcfpDqgojXKH2huGRBGkmQ1shV0PyxrA+cPQp3p+OBu5eYOZ8owesx7UnbrDrTOo0+jNCNOgKMwxfgRTID+ipZUhKwcZlgsuIlss8cfDMoEHCeNBsOuCHDU+3e4zERK4jthxpmvK1L7m12hG4glHXSzj8NYg4RXcplRQI0iaEvFGkvOyiXsh+wLGsiCAovJ5K4RtcF9n8oMCEAg9uoKea3Sp4uNKiGq03d5oR7GJhKK7C/wLYCejPSDneOnD3/MbR6GWm2K8MAMn5xAKfWFpk9YMcAfhWNQjff/lYncdwz30yC9AngPR+6My12ympmaQ2ITXFHrHjSNEy6humWgMaBdiRkzkXJ+5fShIgFw8ldguvXEeAFMdG8wEwZrcKk7srv4vMiNFEE0CfV6XtX7TCVArB6DHtDU472MarbiGna8O2u251qr/kphStFRiMO7509kanmkoGtBd5wPOeXcnPrjQouHKhxuHTkxrBmZ9K4J29fC4G9Jl1Hm3ffLzW4Hl8QnhZAH3kYXZe1cQrf8o7/Pk8tCCyIL54/I8j/fsO3wPOYGzc4Su36tzRgfSWHLMhHD3E60PMuUZDUFG2f9t2NxJ1jRF3A4ndUoUG63KT/IMlUyLPaLAPA9Jt3r1ktb0IYT+G4m/zcu6KMF3Y/sjSZaOM=
 
 before_install:
-  - openssl aes-256-cbc -K $encrypted_4152c396a8e7_key -iv $encrypted_4152c396a8e7_iv -in $GPG_DIR/pubring.gpg.enc -out $GPG_DIR/pubring.gpg -d
-  - openssl aes-256-cbc -K $encrypted_4152c396a8e7_key -iv $encrypted_4152c396a8e7_iv -in $GPG_DIR/secring.gpg.enc -out $GPG_DIR/secring.gpg -d
+  - openssl aes-256-cbc -K $encrypted_4152c396a8e7_key -iv $encrypted_4152c396a8e7_iv -in gpg/pubring.gpg.enc -out gpg/pubring.gpg -d
+  - openssl aes-256-cbc -K $encrypted_4152c396a8e7_key -iv $encrypted_4152c396a8e7_iv -in gpg/secring.gpg.enc -out gpg/secring.gpg -d
 
 script:
   - mvn -P ossrh clean source:jar deploy --settings travis-settings.xml
