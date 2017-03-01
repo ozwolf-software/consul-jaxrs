@@ -9,6 +9,14 @@
     <version>1.0.0</version>
     <name>Consul JAX RS</name>
     <description>Consul library for exposing clients mapped to available Consul service instances</description>
+    <url>https://github.com/ozwolf-software/consul-jaxrs</url>
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
 
     <properties>
         <compile.version>1.8</compile.version>
