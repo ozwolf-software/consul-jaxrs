@@ -1,9 +1,5 @@
 # Consul JAX RS
 
-[![Travis](https://img.shields.io/travis/ozwolf-software/consul-jaxrs.svg?style=flat-square)](https://travis-ci.org/ozwolf-software/consul-jaxrs)
-[![Maven Central](https://img.shields.io/maven-central/v/net.ozwolf/consul-jaxrs.svg?style=flat-square)](http://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22net.ozwolf%22%20AND%20a%3A%22consul-jaxrs%22)
-[![Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
-
 Consul JAX RS is a Java library that provides a Consul-backed service discovery framework for JAX RS-based clients.  Using a provided JAX RS client implementation and a Consul client, this service will maintain a pool of available Jersey clients, with the ability to revoke a client for a period of time, removing it from the selection process.
   
 The design goal behind this library is to allow services that use a JAX RS-based client structure to utilise client-side service discovery and fault tolerance handling in combination with the Consul system.
@@ -18,14 +14,14 @@ The library also provides a basic retry framework, allowing requests to be retri
 <dependency>
     <groupId>net.ozwolf</groupId>
     <artifactId>consul-jaxrs</artifactId>
-    <version>1.0.1</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 
 ### Gradle
 
 ```gradle
-compile 'net.ozwolf:consul-jaxrs:1.0.1'
+compile 'net.ozwolf:consul-jaxrs:1.1.0'
 ```
 
 ### Provided Dependencies
@@ -55,7 +51,7 @@ The base class of this library is the `ConsulJaxRsClientPool` object.  This obje
 Client client = new JerseyClientBuilder().withConfig(new ClientConfig(JacksonJaxbJsonProvider.class)).build();
 Consul consul = Consul.builder().withHostAndPort(HostAndPort.fromParts("consul.local", 8500)).build();
 
-ServiceInstanceClientPool pool = new ServiceInstanceClientPool("my-service", client, consul);
+ConsulJaxRsClientPool pool = new ConsulJaxRsClientPool("my-service", client, consul);
 ```
 
 ### Using A Client Directly
@@ -65,7 +61,7 @@ To get a client from the pool, simply call the `.next()` method.  If no state is
 The returned client is an implementation of 
 
 ```java
-ServiceInstanceClient client = pool.next();
+ConsulJaxRsClient client = pool.next();
 
 try {
     return client.target("/path/to/something")
@@ -107,7 +103,7 @@ Below are particular details around instance clients and their states, behaviour
 
 The service instance clients all use the provided JAX RS client instance assigned to the pool as their delegate client implementation.  
 
-This means any ServiceInstanceClient will use the configuration of the provided base class, including timeout, keep alive and retry policies.  It will also mean any registered request or response filters will still apply.
+This means any ConsulJaxRsClient will use the configuration of the provided base class, including timeout, keep alive and retry policies.  It will also mean any registered request or response filters will still apply.
  
 The primary purpose of the service instance client is to provide the scheme, host and port of the request mapped to the instance provided from Consul.
 
