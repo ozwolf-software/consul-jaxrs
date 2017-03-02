@@ -18,14 +18,14 @@ The library also provides a basic retry framework, allowing requests to be retri
 <dependency>
     <groupId>net.ozwolf</groupId>
     <artifactId>consul-jaxrs</artifactId>
-    <version>${current.version}</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 
 ### Gradle
 
 ```gradle
-compile 'net.ozwolf:consul-jaxrs:${current.version}'
+compile 'net.ozwolf:consul-jaxrs:1.0.1'
 ```
 
 ### Provided Dependencies

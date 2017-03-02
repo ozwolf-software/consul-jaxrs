@@ -116,7 +116,12 @@ public class ServiceInstanceClientTest {
 
     private static ServiceHealth health(String... status) {
         ServiceHealth health = mock(ServiceHealth.class);
+        HealthCheck serfHealth = mock(HealthCheck.class);
+        when(serfHealth.getCheckId()).thenReturn("serfHealth");
+        when(serfHealth.getStatus()).thenReturn(State.PASS.getName());
+
         List<HealthCheck> checks = Arrays.stream(status).map(ServiceInstanceClientTest::check).collect(toList());
+        checks.add(serfHealth);
         when(health.getChecks()).thenReturn(checks);
         return health;
     }

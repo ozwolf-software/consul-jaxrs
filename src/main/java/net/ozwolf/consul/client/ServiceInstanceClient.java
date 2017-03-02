@@ -137,16 +137,22 @@ public class ServiceInstanceClient implements Client {
         if (health == null || health.getChecks().isEmpty())
             return State.WARN;
 
+        State serfHealthState = health.getChecks().stream().filter(c -> c.getCheckId().equals("serfHealth")).findFirst().map(c -> State.fromName(c.getStatus())).orElse(State.FAIL);
+
+        if (serfHealthState == State.FAIL)
+            return State.FAIL;
+
         Set<State> states = health.getChecks()
                 .stream()
                 .filter(c -> !c.getCheckId().equals("serfHealth"))
                 .map(c -> State.fromName(c.getStatus()))
                 .distinct()
                 .collect(toSet());
+
         if (states.size() == 1 && states.contains(State.FAIL))
             return State.FAIL;
 
-        if (states.size() == 1 && states.contains(State.PASS))
+        if (states.size() == 1 && states.contains(State.PASS) && serfHealthState == State.PASS)
             return State.PASS;
 
         return State.WARN;
