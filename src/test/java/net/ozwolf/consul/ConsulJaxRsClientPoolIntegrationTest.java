@@ -30,7 +30,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SuppressWarnings({"ThrowFromFinallyBlock", "Duplicates", "OptionalGetWithoutIsPresent"})
-public class ServiceInstanceClientPoolIntegrationTest {
+public class ConsulJaxRsClientPoolIntegrationTest {
     @ClassRule
     public final static ConsulResource CONSUL = new ConsulResource();
 
@@ -72,7 +72,7 @@ public class ServiceInstanceClientPoolIntegrationTest {
         publishInstance(instance2, State.WARN);
         publishInstance(instance3, State.FAIL);
 
-        ServiceInstanceClientPool pool = new ServiceInstanceClientPool("testing", client, consul)
+        ConsulJaxRsClientPool pool = new ConsulJaxRsClientPool("testing", client, consul)
                 .useHttpMode(HttpMode.HTTP)
                 .withPollRate(1)
                 .withStateWeightingOf(State.WARN, 0.75d);
@@ -109,7 +109,7 @@ public class ServiceInstanceClientPoolIntegrationTest {
         publishInstance(instance2, State.FAIL);
         publishInstance(instance3, State.FAIL);
 
-        ServiceInstanceClientPool pool = new ServiceInstanceClientPool("testing", client, consul).useHttpMode(HttpMode.HTTP).withPollRate(1);
+        ConsulJaxRsClientPool pool = new ConsulJaxRsClientPool("testing", client, consul).useHttpMode(HttpMode.HTTP).withPollRate(1);
         pool.connect();
 
         try {
@@ -126,7 +126,7 @@ public class ServiceInstanceClientPoolIntegrationTest {
 
     @Test
     public void shouldFailIfNoInstancesAvailableAndNoFallback() throws Exception {
-        ServiceInstanceClientPool pool = new ServiceInstanceClientPool("testing", client, consul).useHttpMode(HttpMode.HTTP).withPollRate(1);
+        ConsulJaxRsClientPool pool = new ConsulJaxRsClientPool("testing", client, consul).useHttpMode(HttpMode.HTTP).withPollRate(1);
         pool.connect();
 
         try {
@@ -151,7 +151,7 @@ public class ServiceInstanceClientPoolIntegrationTest {
         publishInstance(instance2, State.PASS);
         publishInstance(instance3, State.PASS);
 
-        ServiceInstanceClientPool pool = new ServiceInstanceClientPool("testing", client, consul).useHttpMode(HttpMode.HTTP).withPollRate(1);
+        ConsulJaxRsClientPool pool = new ConsulJaxRsClientPool("testing", client, consul).useHttpMode(HttpMode.HTTP).withPollRate(1);
         pool.connect();
 
         try {
@@ -172,7 +172,7 @@ public class ServiceInstanceClientPoolIntegrationTest {
     public void shouldUseFallbackInstance() throws Exception {
         instance1.stubFor(get(urlEqualTo("/ping")).willReturn(aResponse().withStatus(200).withBody("pong 1")));
 
-        ServiceInstanceClientPool pool = new ServiceInstanceClientPool("testing", client, consul)
+        ConsulJaxRsClientPool pool = new ConsulJaxRsClientPool("testing", client, consul)
                 .withFallbackInstance(UriBuilder.fromPath("/").scheme("http").host("localhost").port(instance1.port()).build())
                 .useHttpMode(HttpMode.HTTP);
 

@@ -45,9 +45,9 @@ When creating a new pool, an instantiated instance of the `Consul` class needs t
 
 ### Creating A New Client Pool
 
-The base class of this library is the `ServiceInstanceClientPool` object.  This object needs to be provided three things:
+The base class of this library is the `ConsulJaxRsClientPool` object.  This object needs to be provided three things:
 
-+ `serviceId` - the consul-registered service ID the pool instance will be related to.  You can create a `ServiceInstanceClientPool` per service you wish to use instances of.
++ `serviceId` - the consul-registered service ID the pool instance will be related to.  You can create a `ConsulJaxRsClientPool` per service you wish to use instances of.
 + `client` - Any JAX RS client implementation.
 + `consul` - An instantiated instance of the `Consul` object configured to work with your Consul ecosystem.
 
@@ -82,7 +82,7 @@ The above example will randomly provide the next instance client for use.  If th
 
 It is possible to prepare a retry handler from the pool.  This fluent builder will take in instructions, such as how many attempts to make, when to revoke a client instance and for how long, when the break from the retry loop.
 
-It accepts a `RequestAction` implementation, that accepts a `ServiceInstanceClient` instance and can throw an exception.
+It accepts a `RequestAction` implementation, that accepts a `ConsulJaxRsClient` instance and can throw an exception.
 
 ```java
 return pool.retry(3)

@@ -45,9 +45,9 @@ When creating a new pool, an instantiated instance of the `Consul` class needs t
 
 ### Creating A New Client Pool
 
-The base class of this library is the `ServiceInstanceClientPool` object.  This object needs to be provided three things:
+The base class of this library is the `ConsulJaxRsClientPool` object.  This object needs to be provided three things:
 
-+ `serviceId` - the consul-registered service ID the pool instance will be related to.  You can create a `ServiceInstanceClientPool` per service you wish to use instances of.
++ `serviceId` - the consul-registered service ID the pool instance will be related to.  You can create a `ConsulJaxRsClientPool` per service you wish to use instances of.
 + `client` - Any JAX RS client implementation.
 + `consul` - An instantiated instance of the `Consul` object configured to work with your Consul ecosystem.
 
@@ -55,7 +55,7 @@ The base class of this library is the `ServiceInstanceClientPool` object.  This 
 Client client = new JerseyClientBuilder().withConfig(new ClientConfig(JacksonJaxbJsonProvider.class)).build();
 Consul consul = Consul.builder().withHostAndPort(HostAndPort.fromParts("consul.local", 8500)).build();
 
-ServiceInstanceClientPool pool = new ServiceInstanceClientPool("my-service", client, consul);
+ConsulJaxRsClientPool pool = new ConsulJaxRsClientPool("my-service", client, consul);
 ```
 
 ### Using A Client Directly
@@ -65,7 +65,7 @@ To get a client from the pool, simply call the `.next()` method.  If no state is
 The returned client is an implementation of 
 
 ```java
-ServiceInstanceClient client = pool.next();
+ConsulJaxRsClient client = pool.next();
 
 try {
     return client.target("/path/to/something")
@@ -82,7 +82,7 @@ The above example will randomly provide the next instance client for use.  If th
 
 It is possible to prepare a retry handler from the pool.  This fluent builder will take in instructions, such as how many attempts to make, when to revoke a client instance and for how long, when the break from the retry loop.
 
-It accepts a `RequestAction` implementation, that accepts a `ServiceInstanceClient` instance and can throw an exception.
+It accepts a `RequestAction` implementation, that accepts a `ConsulJaxRsClient` instance and can throw an exception.
 
 ```java
 return pool.retry(3)
@@ -107,7 +107,7 @@ Below are particular details around instance clients and their states, behaviour
 
 The service instance clients all use the provided JAX RS client instance assigned to the pool as their delegate client implementation.  
 
-This means any ServiceInstanceClient will use the configuration of the provided base class, including timeout, keep alive and retry policies.  It will also mean any registered request or response filters will still apply.
+This means any ConsulJaxRsClient will use the configuration of the provided base class, including timeout, keep alive and retry policies.  It will also mean any registered request or response filters will still apply.
  
 The primary purpose of the service instance client is to provide the scheme, host and port of the request mapped to the instance provided from Consul.
 

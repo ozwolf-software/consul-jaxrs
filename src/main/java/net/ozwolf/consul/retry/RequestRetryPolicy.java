@@ -1,6 +1,6 @@
 package net.ozwolf.consul.retry;
 
-import net.ozwolf.consul.client.ServiceInstanceClient;
+import net.ozwolf.consul.client.ConsulJaxRsClient;
 import net.ozwolf.consul.exception.RequestFailureException;
 
 import java.util.HashMap;
@@ -29,7 +29,7 @@ import java.util.function.Supplier;
 @SuppressWarnings("WeakerAccess")
 public class RequestRetryPolicy {
     private final Integer attempts;
-    private final Supplier<ServiceInstanceClient> onNext;
+    private final Supplier<ConsulJaxRsClient> onNext;
 
     private final Map<Class<? extends Exception>, Long> revokeOn;
     private final Set<Class<? extends Exception>> breakOn;
@@ -40,7 +40,7 @@ public class RequestRetryPolicy {
      * @param attempts the number of request attempts to make
      * @param onNext   the supplier of clients when the next instance is required
      */
-    public RequestRetryPolicy(Integer attempts, Supplier<ServiceInstanceClient> onNext) {
+    public RequestRetryPolicy(Integer attempts, Supplier<ConsulJaxRsClient> onNext) {
         this.attempts = attempts;
         this.onNext = onNext;
 
@@ -83,7 +83,7 @@ public class RequestRetryPolicy {
         return doAttempt(1, onNext.get(), action);
     }
 
-    private <T> T doAttempt(int attempt, ServiceInstanceClient client, RequestAction<T> action) {
+    private <T> T doAttempt(int attempt, ConsulJaxRsClient client, RequestAction<T> action) {
         try {
             return action.doRequest(client);
         } catch (Exception e) {

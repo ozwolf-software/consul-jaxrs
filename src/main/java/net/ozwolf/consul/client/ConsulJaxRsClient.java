@@ -33,13 +33,13 @@ import static java.util.stream.Collectors.toSet;
  * ## Example Usage
  *
  * ```java
- * ServiceInstanceClient client = pool.next();
+ * ConsulJaxRsClient client = pool.next();
  *
  * String result = client.target("/path/to/something").request().get(String.class);
  * ```
  */
 @SuppressWarnings("WeakerAccess")
-public class ServiceInstanceClient implements Client {
+public class ConsulJaxRsClient implements Client {
     private final ServiceHealthKey key;
     private final Client client;
     private final HttpMode scheme;
@@ -53,9 +53,9 @@ public class ServiceInstanceClient implements Client {
      * @param client the delegating client
      * @param scheme the HTTP scheme to use in requests (ie. HTTP or HTTPS)
      */
-    public ServiceInstanceClient(ServiceHealthKey key,
-                                 Client client,
-                                 HttpMode scheme) {
+    public ConsulJaxRsClient(ServiceHealthKey key,
+                             Client client,
+                             HttpMode scheme) {
         this.key = key;
         this.client = client;
         this.scheme = scheme;
@@ -164,7 +164,7 @@ public class ServiceInstanceClient implements Client {
      * @param health the service health from Consul
      * @return the updated client
      */
-    public ServiceInstanceClient update(ServiceHealth health) {
+    public ConsulJaxRsClient update(ServiceHealth health) {
         this.health = health;
         return this;
     }

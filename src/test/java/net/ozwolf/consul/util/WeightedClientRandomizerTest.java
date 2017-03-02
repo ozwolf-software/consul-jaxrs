@@ -2,7 +2,7 @@ package net.ozwolf.consul.util;
 
 import com.orbitz.consul.cache.ServiceHealthKey;
 import com.orbitz.consul.model.State;
-import net.ozwolf.consul.client.ServiceInstanceClient;
+import net.ozwolf.consul.client.ConsulJaxRsClient;
 import org.assertj.core.api.Condition;
 import org.junit.Test;
 
@@ -19,7 +19,7 @@ import static org.mockito.Mockito.when;
 public class WeightedClientRandomizerTest {
     @Test
     public void shouldRandomlySelectServicesUsingExpectedDistribution() {
-        Set<ServiceInstanceClient> clients = new HashSet<>();
+        Set<ConsulJaxRsClient> clients = new HashSet<>();
         clients.add(client(1, State.PASS));
         clients.add(client(2, State.WARN));
         clients.add(client(3, State.WARN));
@@ -37,7 +37,7 @@ public class WeightedClientRandomizerTest {
 
         // Create a random distribution
         for(int i = 1; i <= 10000; i++){
-            ServiceInstanceClient client = WeightedClientRandomizer.select(clients, weighting);
+            ConsulJaxRsClient client = WeightedClientRandomizer.select(clients, weighting);
             distribution.computeIfAbsent(client.getKey().getPort(), k -> new AtomicInteger(0)).addAndGet(1);
         }
 
@@ -71,8 +71,8 @@ public class WeightedClientRandomizerTest {
             assertThat(value).isGreaterThan(testValue);
     }
 
-    private static ServiceInstanceClient client(int port, State state){
-        ServiceInstanceClient client = mock(ServiceInstanceClient.class);
+    private static ConsulJaxRsClient client(int port, State state){
+        ConsulJaxRsClient client = mock(ConsulJaxRsClient.class);
         when(client.getKey()).thenReturn(ServiceHealthKey.of("test", "localhost", port));
         when(client.getState()).thenReturn(state);
         return client;

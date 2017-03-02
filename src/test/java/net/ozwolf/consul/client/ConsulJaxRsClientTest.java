@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-public class ServiceInstanceClientTest {
+public class ConsulJaxRsClientTest {
     @Rule
     public final WireMockRule server = new WireMockRule();
 
@@ -49,7 +49,7 @@ public class ServiceInstanceClientTest {
     public void shouldConnectToServerAndReturnIgnoringAnyHostPortSchemeProvided() {
         ServiceHealthKey key = ServiceHealthKey.of("testing", "localhost", server.port());
 
-        Client consulClient = new ServiceInstanceClient(key, client, HttpMode.HTTP);
+        Client consulClient = new ConsulJaxRsClient(key, client, HttpMode.HTTP);
 
         UriBuilder builder = UriBuilder.fromPath("/ping").scheme("https").host("wrong").port(18562);
 
@@ -68,7 +68,7 @@ public class ServiceInstanceClientTest {
     public void shouldRecordClientAsRevoked() throws InterruptedException {
         ServiceHealthKey key = ServiceHealthKey.of("testing", "localhost", server.port());
 
-        ServiceInstanceClient consulClient = new ServiceInstanceClient(key, client, HttpMode.HTTP);
+        ConsulJaxRsClient consulClient = new ConsulJaxRsClient(key, client, HttpMode.HTTP);
 
         assertThat(consulClient.isRevoked()).isFalse();
 
@@ -85,7 +85,7 @@ public class ServiceInstanceClientTest {
     public void shouldReturnAppropriateClientState() {
         ServiceHealthKey key = ServiceHealthKey.of("testing", "localhost", server.port());
 
-        ServiceInstanceClient consulClient = new ServiceInstanceClient(key, client, HttpMode.HTTP);
+        ConsulJaxRsClient consulClient = new ConsulJaxRsClient(key, client, HttpMode.HTTP);
 
         assertThat(consulClient.getState()).isEqualTo(State.WARN);
 
@@ -120,7 +120,7 @@ public class ServiceInstanceClientTest {
         when(serfHealth.getCheckId()).thenReturn("serfHealth");
         when(serfHealth.getStatus()).thenReturn(State.PASS.getName());
 
-        List<HealthCheck> checks = Arrays.stream(status).map(ServiceInstanceClientTest::check).collect(toList());
+        List<HealthCheck> checks = Arrays.stream(status).map(ConsulJaxRsClientTest::check).collect(toList());
         checks.add(serfHealth);
         when(health.getChecks()).thenReturn(checks);
         return health;

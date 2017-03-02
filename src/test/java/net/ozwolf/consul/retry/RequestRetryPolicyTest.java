@@ -1,7 +1,7 @@
 package net.ozwolf.consul.retry;
 
 import com.orbitz.consul.cache.ServiceHealthKey;
-import net.ozwolf.consul.client.ServiceInstanceClient;
+import net.ozwolf.consul.client.ConsulJaxRsClient;
 import net.ozwolf.consul.exception.RequestFailureException;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
@@ -26,11 +26,11 @@ public class RequestRetryPolicyTest {
 
     @Test
     public void shouldExecuteAction() {
-        ServiceInstanceClient client = mock(ServiceInstanceClient.class);
+        ConsulJaxRsClient client = mock(ConsulJaxRsClient.class);
 
         when(client.getKey()).thenReturn(ServiceHealthKey.of("test", "localhost", 1234));
 
-        Supplier<ServiceInstanceClient> onNext = () -> client;
+        Supplier<ConsulJaxRsClient> onNext = () -> client;
 
         RequestRetryPolicy policy = new RequestRetryPolicy(1, onNext);
 
@@ -41,10 +41,10 @@ public class RequestRetryPolicyTest {
 
     @Test
     public void shouldBreakOnException() {
-        ServiceInstanceClient client = mock(ServiceInstanceClient.class);
+        ConsulJaxRsClient client = mock(ConsulJaxRsClient.class);
         when(client.getKey()).thenReturn(ServiceHealthKey.of("test", "localhost", 1234));
 
-        Supplier<ServiceInstanceClient> onNext = () -> client;
+        Supplier<ConsulJaxRsClient> onNext = () -> client;
 
         AtomicInteger calls = new AtomicInteger(0);
 
@@ -64,10 +64,10 @@ public class RequestRetryPolicyTest {
 
     @Test
     public void shouldFailOnException() {
-        ServiceInstanceClient client = mock(ServiceInstanceClient.class);
+        ConsulJaxRsClient client = mock(ConsulJaxRsClient.class);
         when(client.getKey()).thenReturn(ServiceHealthKey.of("test", "localhost", 1234));
 
-        Supplier<ServiceInstanceClient> onNext = () -> client;
+        Supplier<ConsulJaxRsClient> onNext = () -> client;
 
         RequestAction<String> action = c -> {
             throw new ServerErrorException(503);
@@ -80,8 +80,8 @@ public class RequestRetryPolicyTest {
 
     @Test
     public void shouldRevokeClientOnException() {
-        ServiceInstanceClient client1 = mock(ServiceInstanceClient.class);
-        ServiceInstanceClient client2 = mock(ServiceInstanceClient.class);
+        ConsulJaxRsClient client1 = mock(ConsulJaxRsClient.class);
+        ConsulJaxRsClient client2 = mock(ConsulJaxRsClient.class);
 
         when(client1.getKey()).thenReturn(ServiceHealthKey.of("test", "localhost", 1234));
         when(client2.getKey()).thenReturn(ServiceHealthKey.of("test", "localhost", 5678));
@@ -91,7 +91,7 @@ public class RequestRetryPolicyTest {
             return null;
         }).when(client1).revoke(anyLong());
 
-        Supplier<ServiceInstanceClient> onNext = () -> client1.isRevoked() ? client2 : client1;
+        Supplier<ConsulJaxRsClient> onNext = () -> client1.isRevoked() ? client2 : client1;
 
         RequestAction<String> action = c -> {
             if (c == client1)

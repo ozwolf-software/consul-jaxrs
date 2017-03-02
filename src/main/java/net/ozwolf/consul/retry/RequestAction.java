@@ -1,6 +1,6 @@
 package net.ozwolf.consul.retry;
 
-import net.ozwolf.consul.client.ServiceInstanceClient;
+import net.ozwolf.consul.client.ConsulJaxRsClient;
 
 /**
  * <h1>Request Action</h1>
@@ -15,5 +15,5 @@ public interface RequestAction<T> {
      * @return the expected result
      * @throws Exception when any exception occurs
      */
-    T doRequest(ServiceInstanceClient client) throws Exception;
+    T doRequest(ConsulJaxRsClient client) throws Exception;
 }

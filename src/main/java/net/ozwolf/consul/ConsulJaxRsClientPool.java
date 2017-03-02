@@ -6,7 +6,7 @@ import com.orbitz.consul.cache.ServiceHealthCache;
 import com.orbitz.consul.cache.ServiceHealthKey;
 import com.orbitz.consul.model.State;
 import com.orbitz.consul.model.health.ServiceHealth;
-import net.ozwolf.consul.client.ServiceInstanceClient;
+import net.ozwolf.consul.client.ConsulJaxRsClient;
 import net.ozwolf.consul.exception.ClientAvailabilityException;
 import net.ozwolf.consul.retry.RequestRetryPolicy;
 import net.ozwolf.consul.util.WeightedClientRandomizer;
@@ -38,7 +38,7 @@ import static java.util.stream.Collectors.toSet;
  * ```
  */
 @SuppressWarnings("WeakerAccess")
-public class ServiceInstanceClientPool implements ConsulCache.Listener<ServiceHealthKey, ServiceHealth> {
+public class ConsulJaxRsClientPool implements ConsulCache.Listener<ServiceHealthKey, ServiceHealth> {
     private final String serviceId;
     private final Client baseClient;
     private final Consul consul;
@@ -49,11 +49,11 @@ public class ServiceInstanceClientPool implements ConsulCache.Listener<ServiceHe
 
     private ServiceHealthCache serviceCache;
 
-    private Set<ServiceInstanceClient> clients;
+    private Set<ConsulJaxRsClient> clients;
 
     private final Map<State, Double> weightings;
 
-    private final static Logger LOGGER = LoggerFactory.getLogger(ServiceInstanceClientPool.class);
+    private final static Logger LOGGER = LoggerFactory.getLogger(ConsulJaxRsClientPool.class);
     private final static Integer DEFAULT_POLL_RATE_SECONDS = 300;
 
     /**
@@ -63,7 +63,7 @@ public class ServiceInstanceClientPool implements ConsulCache.Listener<ServiceHe
      * @param baseClient the configured JAX RS client that will be used
      * @param consul     the configured Consul client connection for retrieving discoverable state
      */
-    public ServiceInstanceClientPool(String serviceId, Client baseClient, Consul consul) {
+    public ConsulJaxRsClientPool(String serviceId, Client baseClient, Consul consul) {
         this.serviceId = serviceId;
         this.baseClient = baseClient;
         this.consul = consul;
@@ -81,7 +81,7 @@ public class ServiceInstanceClientPool implements ConsulCache.Listener<ServiceHe
      * @param uri the base URI to the fallback service instance
      * @return the updated pool
      */
-    public ServiceInstanceClientPool withFallbackInstance(URI uri) {
+    public ConsulJaxRsClientPool withFallbackInstance(URI uri) {
         this.fallback = uri;
         return this;
     }
@@ -92,7 +92,7 @@ public class ServiceInstanceClientPool implements ConsulCache.Listener<ServiceHe
      * @param scheme the request scheme
      * @return the updated pool
      */
-    public ServiceInstanceClientPool useHttpMode(HttpMode scheme) {
+    public ConsulJaxRsClientPool useHttpMode(HttpMode scheme) {
         this.scheme = scheme;
         return this;
     }
@@ -103,7 +103,7 @@ public class ServiceInstanceClientPool implements ConsulCache.Listener<ServiceHe
      * @param seconds the poll rate in seconds
      * @return the updated pool
      */
-    public ServiceInstanceClientPool withPollRate(Integer seconds) {
+    public ConsulJaxRsClientPool withPollRate(Integer seconds) {
         this.pollRate = seconds;
         return this;
     }
@@ -121,7 +121,7 @@ public class ServiceInstanceClientPool implements ConsulCache.Listener<ServiceHe
      * @param weighting the weight amount
      * @return the updated pool
      */
-    public ServiceInstanceClientPool withStateWeightingOf(State state, Double weighting) {
+    public ConsulJaxRsClientPool withStateWeightingOf(State state, Double weighting) {
         this.weightings.put(state, weighting);
         return this;
     }
@@ -135,14 +135,14 @@ public class ServiceInstanceClientPool implements ConsulCache.Listener<ServiceHe
      * @return the service instance client
      * @throws ClientAvailabilityException if there are no instances and no fallback, or no valid instance could be selected matching the desired state
      */
-    public ServiceInstanceClient next(State minimumState) {
+    public ConsulJaxRsClient next(State minimumState) {
         if (this.clients.isEmpty() && this.fallback == null)
             throw new ClientAvailabilityException(serviceId, "No instances published and no fallback provided.");
 
         if (this.clients.isEmpty() && this.fallback != null)
-            return new ServiceInstanceClient(ServiceHealthKey.of(serviceId, fallback.getHost(), fallback.getPort()), baseClient, scheme);
+            return new ConsulJaxRsClient(ServiceHealthKey.of(serviceId, fallback.getHost(), fallback.getPort()), baseClient, scheme);
 
-        Set<ServiceInstanceClient> available = this.clients.stream()
+        Set<ConsulJaxRsClient> available = this.clients.stream()
                 .filter(c -> c.isAtLeast(minimumState))
                 .filter(c -> !c.isRevoked())
                 .collect(toSet());
@@ -166,7 +166,7 @@ public class ServiceInstanceClientPool implements ConsulCache.Listener<ServiceHe
      * @return the service instance client
      * @throws ClientAvailabilityException if there are no instances and no fallback, or no valid instance could be selected matching the desired state
      */
-    public ServiceInstanceClient next() {
+    public ConsulJaxRsClient next() {
         return next(State.WARN);
     }
 
@@ -227,15 +227,15 @@ public class ServiceInstanceClientPool implements ConsulCache.Listener<ServiceHe
      */
     @Override
     public void notify(Map<ServiceHealthKey, ServiceHealth> instances) {
-        Set<ServiceInstanceClient> updated = new HashSet<>();
+        Set<ConsulJaxRsClient> updated = new HashSet<>();
 
         instances.entrySet().stream()
                 .forEach(e -> {
-                    Optional<ServiceInstanceClient> previous = clients.stream().filter(c -> c.getKey().equals(e.getKey())).findFirst();
+                    Optional<ConsulJaxRsClient> previous = clients.stream().filter(c -> c.getKey().equals(e.getKey())).findFirst();
                     if (previous.isPresent()) {
                         updated.add(previous.get().update(e.getValue()));
                     } else {
-                        updated.add(new ServiceInstanceClient(e.getKey(), baseClient, scheme).update(e.getValue()));
+                        updated.add(new ConsulJaxRsClient(e.getKey(), baseClient, scheme).update(e.getValue()));
                     }
                 });
 
