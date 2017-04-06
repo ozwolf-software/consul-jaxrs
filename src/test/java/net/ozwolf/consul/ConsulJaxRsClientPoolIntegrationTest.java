@@ -3,11 +3,17 @@ package net.ozwolf.consul;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import com.google.common.net.HostAndPort;
 import com.orbitz.consul.Consul;
+import com.orbitz.consul.HealthClient;
 import com.orbitz.consul.NotRegisteredException;
+import com.orbitz.consul.cache.ServiceHealthCache;
+import com.orbitz.consul.cache.ServiceHealthKey;
 import com.orbitz.consul.model.State;
 import com.orbitz.consul.model.agent.Registration;
 import com.orbitz.consul.model.catalog.CatalogRegistration;
 import com.orbitz.consul.model.catalog.ImmutableCatalogRegistration;
+import com.orbitz.consul.model.health.ServiceHealth;
+import com.orbitz.consul.option.CatalogOptions;
+import com.orbitz.consul.option.QueryOptions;
 import com.pszymczyk.consul.junit.ConsulResource;
 import net.ozwolf.consul.exception.ClientAvailabilityException;
 import net.ozwolf.consul.testutils.PortFactory;
@@ -25,6 +31,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -109,7 +116,28 @@ public class ConsulJaxRsClientPoolIntegrationTest {
         publishInstance(instance2, State.FAIL);
         publishInstance(instance3, State.FAIL);
 
-        ConsulJaxRsClientPool pool = new ConsulJaxRsClientPool("testing", client, consul).useHttpMode(HttpMode.HTTP).withPollRate(1);
+        ServiceHealthCacheProvider cacheProvider = (healthClient, serviceId, pollRateInSeconds) -> {
+            Function<ServiceHealth, ServiceHealthKey> keyExtractor = h -> new ServiceHealthKey() {
+                @Override
+                public String getServiceId() {
+                    return serviceId;
+                }
+
+                @Override
+                public String getHost() {
+                    return h.getService().getAddress();
+                }
+
+                @Override
+                public Integer getPort() {
+                    return h.getService().getPort();
+                }
+            };
+
+            return ServiceHealthCache.newCache(healthClient, serviceId, false, CatalogOptions.BLANK, pollRateInSeconds, QueryOptions.BLANK, keyExtractor::apply);
+        };
+
+        ConsulJaxRsClientPool pool = new ConsulJaxRsClientPool("testing", client, consul).useHttpMode(HttpMode.HTTP).withPollRate(1).withHealthCacheProvider(cacheProvider);
         pool.connect();
 
         try {

@@ -6,7 +6,7 @@
 
     <groupId>net.ozwolf</groupId>
     <artifactId>consul-jaxrs</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <name>Consul JAX RS</name>
     <description>Consul library for exposing clients mapped to available Consul service instances</description>
     <url>https://github.com/ozwolf-software/consul-jaxrs</url>

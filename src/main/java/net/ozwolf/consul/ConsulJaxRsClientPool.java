@@ -6,6 +6,8 @@ import com.orbitz.consul.cache.ServiceHealthCache;
 import com.orbitz.consul.cache.ServiceHealthKey;
 import com.orbitz.consul.model.State;
 import com.orbitz.consul.model.health.ServiceHealth;
+import com.orbitz.consul.option.CatalogOptions;
+import com.orbitz.consul.option.QueryOptions;
 import net.ozwolf.consul.client.ConsulJaxRsClient;
 import net.ozwolf.consul.exception.ClientAvailabilityException;
 import net.ozwolf.consul.retry.RequestRetryPolicy;
@@ -16,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import javax.ws.rs.client.Client;
 import java.net.URI;
 import java.util.*;
+import java.util.function.Function;
 
 import static java.util.stream.Collectors.toSet;
 
@@ -28,6 +31,16 @@ import static java.util.stream.Collectors.toSet;
  *
  * The pool is configured by default to use the HTTPS scheme when preparing requests.
  *
+ * ## Service Health Cache
+ *
+ * By default, the pool will create a service health cache using the `ServiceHealthCache.newCache(healthClient, serviceId, false, null, pollRateInSeconds)`.
+ *
+ * This means it will poll by the defined timing in seconds, retrieve all instances (regardless of passing state) for the given service ID using the `HealthClient` instance from the provided `Consul` instance when the pool was created.
+ *
+ * ### Service Health Cache Provider
+ *
+ * If you wish to search for client instances using different rules, an implementation of the `ServiceHealthCacheProvider` interface can be provided.
+ *
  * ## Example Usage
  *
  * ```java
@@ -36,6 +49,8 @@ import static java.util.stream.Collectors.toSet;
  *
  * ConsulJaxRsClientPool pool = new ConsulJaxRsClientPool("my-service", client, consul);
  * ```
+ *
+ * @see ServiceHealthCacheProvider
  */
 @SuppressWarnings("WeakerAccess")
 public class ConsulJaxRsClientPool implements ConsulCache.Listener<ServiceHealthKey, ServiceHealth> {
@@ -48,6 +63,7 @@ public class ConsulJaxRsClientPool implements ConsulCache.Listener<ServiceHealth
     private Integer pollRate;
 
     private ServiceHealthCache serviceCache;
+    private ServiceHealthCacheProvider serviceCacheProvider;
 
     private Set<ConsulJaxRsClient> clients;
 
@@ -110,9 +126,9 @@ public class ConsulJaxRsClientPool implements ConsulCache.Listener<ServiceHealth
 
     /**
      * Change the default weighting of services with a specific state.
-     *
+     * <p>
      * The default weightings are:
-     *
+     * <p>
      * + `PASS` - `1.0`
      * + `WARN` - `0.5`
      * + `FAIL` - `0.1`
@@ -126,9 +142,14 @@ public class ConsulJaxRsClientPool implements ConsulCache.Listener<ServiceHealth
         return this;
     }
 
+    public ConsulJaxRsClientPool withHealthCacheProvider(ServiceHealthCacheProvider provider){
+        this.serviceCacheProvider = provider;
+        return this;
+    }
+
     /**
      * Retrieve the next available service instance client that has at least the minimum health state.
-     *
+     * <p>
      * Will randomly select an available instance, including revoked clients if no other instances are available.
      *
      * @param minimumState the minimum state the client should be in
@@ -160,7 +181,7 @@ public class ConsulJaxRsClientPool implements ConsulCache.Listener<ServiceHealth
 
     /**
      * Retrieve the next available service instance client that has at least the `WARN` health state.
-     *
+     * <p>
      * Will randomly select an available instance, including revoked clients if no other instances are available.
      *
      * @return the service instance client
@@ -172,7 +193,7 @@ public class ConsulJaxRsClientPool implements ConsulCache.Listener<ServiceHealth
 
     /**
      * Begin preparing a retry policy that will make the provided number of attempts to complete the request.
-     *
+     * <p>
      * This retry policy will use instances that have at least the `WARN` health state.
      *
      * @param attempts the number of attempts the retry attempt should make
@@ -199,7 +220,9 @@ public class ConsulJaxRsClientPool implements ConsulCache.Listener<ServiceHealth
      * @throws Exception if any exception occurs during the connection process.
      */
     public void connect() throws Exception {
-        this.serviceCache = ServiceHealthCache.newCache(this.consul.healthClient(), serviceId, false, null, pollRate);
+        this.serviceCache = serviceCacheProvider == null ?
+                ServiceHealthCache.newCache(this.consul.healthClient(), serviceId, false, CatalogOptions.BLANK, pollRate) :
+                serviceCacheProvider.get(this.consul.healthClient(), serviceId, pollRate);
         this.serviceCache.addListener(this);
         this.serviceCache.start();
 
@@ -208,7 +231,7 @@ public class ConsulJaxRsClientPool implements ConsulCache.Listener<ServiceHealth
 
     /**
      * Shuts down the client and stops it from listening to the Consul instance for updates.
-     *
+     * <p>
      * The last retrieved state remains the static state until the client is re-connected.
      *
      * @throws Exception if any exception occurs during the connection process.
@@ -229,15 +252,14 @@ public class ConsulJaxRsClientPool implements ConsulCache.Listener<ServiceHealth
     public void notify(Map<ServiceHealthKey, ServiceHealth> instances) {
         Set<ConsulJaxRsClient> updated = new HashSet<>();
 
-        instances.entrySet().stream()
-                .forEach(e -> {
-                    Optional<ConsulJaxRsClient> previous = clients.stream().filter(c -> c.getKey().equals(e.getKey())).findFirst();
-                    if (previous.isPresent()) {
-                        updated.add(previous.get().update(e.getValue()));
-                    } else {
-                        updated.add(new ConsulJaxRsClient(e.getKey(), baseClient, scheme).update(e.getValue()));
-                    }
-                });
+        instances.entrySet().forEach(e -> {
+            Optional<ConsulJaxRsClient> previous = clients.stream().filter(c -> c.getKey().equals(e.getKey())).findFirst();
+            if (previous.isPresent()) {
+                updated.add(previous.get().update(e.getValue()));
+            } else {
+                updated.add(new ConsulJaxRsClient(e.getKey(), baseClient, scheme).update(e.getValue()));
+            }
+        });
 
         this.clients = updated;
     }

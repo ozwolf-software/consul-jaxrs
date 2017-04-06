@@ -18,14 +18,14 @@ The library also provides a basic retry framework, allowing requests to be retri
 <dependency>
     <groupId>net.ozwolf</groupId>
     <artifactId>consul-jaxrs</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
 </dependency>
 ```
 
 ### Gradle
 
 ```gradle
-compile 'net.ozwolf:consul-jaxrs:1.1.0'
+compile 'net.ozwolf:consul-jaxrs:1.1.1'
 ```
 
 ### Provided Dependencies
@@ -57,6 +57,16 @@ Consul consul = Consul.builder().withHostAndPort(HostAndPort.fromParts("consul.l
 
 ConsulJaxRsClientPool pool = new ConsulJaxRsClientPool("my-service", client, consul);
 ```
+
+#### Service Health Cache
+
+The client pool uses a `ServiceHealthCache` to monitor the state of the service instances behind the scenes.  By default, the pool will create it's own default service health cache that will retrieve all instances (including critical instances) and a default service health key.  For example:
+
+```java
+ServiceHealthCache cache = ServiceHealthCache.newCache(consul.healthClient(), serviceId, false, CatalogOptions.BLANK, pollRate)
+```
+
+The pool also provides an option to provide an implementation of the `ServiceHealthCacheProvider` interface to create your own cache, allowing for more custom cache creation when needed (eg. if wanting to customise the `ServiceHealthKey` implementation).
 
 ### Using A Client Directly
 
