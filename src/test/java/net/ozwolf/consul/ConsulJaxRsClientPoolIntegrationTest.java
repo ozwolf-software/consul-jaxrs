@@ -3,7 +3,6 @@ package net.ozwolf.consul;
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import com.google.common.net.HostAndPort;
 import com.orbitz.consul.Consul;
-import com.orbitz.consul.HealthClient;
 import com.orbitz.consul.NotRegisteredException;
 import com.orbitz.consul.cache.ServiceHealthCache;
 import com.orbitz.consul.cache.ServiceHealthKey;
@@ -12,7 +11,6 @@ import com.orbitz.consul.model.agent.Registration;
 import com.orbitz.consul.model.catalog.CatalogRegistration;
 import com.orbitz.consul.model.catalog.ImmutableCatalogRegistration;
 import com.orbitz.consul.model.health.ServiceHealth;
-import com.orbitz.consul.option.CatalogOptions;
 import com.orbitz.consul.option.QueryOptions;
 import com.pszymczyk.consul.junit.ConsulResource;
 import net.ozwolf.consul.exception.ClientAvailabilityException;
@@ -23,12 +21,17 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import rx.Observable;
+import rx.Subscriber;
+import rx.Subscription;
+import rx.internal.util.BlockingUtils;
 
 import javax.ws.rs.ServerErrorException;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.core.UriBuilder;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -134,7 +137,7 @@ public class ConsulJaxRsClientPoolIntegrationTest {
                 }
             };
 
-            return ServiceHealthCache.newCache(healthClient, serviceId, false, CatalogOptions.BLANK, pollRateInSeconds, QueryOptions.BLANK, keyExtractor::apply);
+            return ServiceHealthCache.newCache(healthClient, serviceId, false, pollRateInSeconds, QueryOptions.BLANK, keyExtractor::apply);
         };
 
         ConsulJaxRsClientPool pool = new ConsulJaxRsClientPool("testing", client, consul).useHttpMode(HttpMode.HTTP).withPollRate(1).withHealthCacheProvider(cacheProvider);
@@ -197,6 +200,73 @@ public class ConsulJaxRsClientPoolIntegrationTest {
     }
 
     @Test
+    public void shouldUseRetryObservableMethod() throws Exception {
+        instance1.stubFor(get(urlEqualTo("/ping")).willReturn(aResponse().withStatus(500).withBody("internal error")));
+        instance2.stubFor(get(urlEqualTo("/ping")).willReturn(aResponse().withStatus(500).withBody("internal error")));
+        instance3.stubFor(get(urlEqualTo("/ping")).willReturn(aResponse().withStatus(200).withBody("pong 3")));
+
+        publishInstance(instance1, State.PASS);
+        publishInstance(instance2, State.PASS);
+        publishInstance(instance3, State.PASS);
+
+        ConsulJaxRsClientPool pool = new ConsulJaxRsClientPool("testing", client, consul).useHttpMode(HttpMode.HTTP).withPollRate(1);
+        pool.connect();
+
+        try {
+            // Wait for the services to be available.
+            TimeUnit.MILLISECONDS.sleep(1500);
+
+            Observable<String> result = pool.retry(3)
+                    .revokeOn(ServerErrorException.class, 1, TimeUnit.MINUTES)
+                    .observe(c -> c.target("/ping").request().get(String.class));
+
+            TestSubscriber<String> subscriber = new TestSubscriber<>();
+
+            Subscription subscription = result.subscribe(subscriber);
+
+            BlockingUtils.awaitForComplete(subscriber.latch, subscription);
+
+            assertThat(subscriber.value).isEqualTo("pong 3");
+        } finally {
+            pool.disconnect();
+        }
+    }
+
+    @Test
+    public void shouldHandleExceptions() throws Exception {
+        instance1.stubFor(get(urlEqualTo("/ping")).willReturn(aResponse().withStatus(500).withBody("internal error")));
+        instance2.stubFor(get(urlEqualTo("/ping")).willReturn(aResponse().withStatus(500).withBody("internal error")));
+        instance3.stubFor(get(urlEqualTo("/ping")).willReturn(aResponse().withStatus(500).withBody("internal error")));
+
+        publishInstance(instance1, State.PASS);
+        publishInstance(instance2, State.PASS);
+        publishInstance(instance3, State.PASS);
+
+        ConsulJaxRsClientPool pool = new ConsulJaxRsClientPool("testing", client, consul).useHttpMode(HttpMode.HTTP).withPollRate(1);
+        pool.connect();
+
+        try {
+            // Wait for the services to be available.
+            TimeUnit.MILLISECONDS.sleep(1500);
+
+            Observable<String> result = pool.retry(3)
+                    .revokeOn(ServerErrorException.class, 1, TimeUnit.MINUTES)
+                    .observe(c -> c.target("/ping").request().get(String.class));
+
+            TestSubscriber<String> subscriber = new TestSubscriber<>();
+
+            Subscription subscription = result.subscribe(subscriber);
+
+            BlockingUtils.awaitForComplete(subscriber.latch, subscription);
+
+            assertThat(subscriber.throwable).isInstanceOf(ServerErrorException.class);
+            assertThat(((ServerErrorException) subscriber.throwable).getResponse().readEntity(String.class)).isEqualTo("internal error");
+        } finally {
+            pool.disconnect();
+        }
+    }
+
+    @Test
     public void shouldUseFallbackInstance() throws Exception {
         instance1.stubFor(get(urlEqualTo("/ping")).willReturn(aResponse().withStatus(200).withBody("pong 1")));
 
@@ -231,5 +301,28 @@ public class ConsulJaxRsClientPoolIntegrationTest {
 
         consul.agentClient()
                 .register(rule.port(), check, "testing", "testing-" + rule.port());
+    }
+
+    private static class TestSubscriber<T> extends Subscriber<T> {
+        private T value;
+        private Throwable throwable;
+
+        private final CountDownLatch latch = new CountDownLatch(1);
+
+        @Override
+        public void onCompleted() {
+            latch.countDown();
+        }
+
+        @Override
+        public void onError(Throwable e) {
+            this.throwable = e;
+            latch.countDown();
+        }
+
+        @Override
+        public void onNext(T t) {
+            this.value = t;
+        }
     }
 }

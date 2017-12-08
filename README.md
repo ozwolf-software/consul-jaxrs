@@ -10,6 +10,12 @@ The design goal behind this library is to allow services that use a JAX RS-based
 
 The library also provides a basic retry framework, allowing requests to be retried and revoking client instances on errors appropriately.  However, if you want to use a more robust solution, then a library like [Failsafe](https://github.com/jhalterman/failsafe) might be more suitable.
 
+## Changes From Version 1.x
+
++ Removed the `RequestFailureException` error wrapper used by the retry functionality.  The original error will now be returned.
++ Converted the retry functionality to use RxJava, allowing the creating of `Observables` around fault-tolerant retry loops.
++ Added backoff retry interval functionality.
+
 ## Dependency Management
 
 ### Maven
@@ -18,14 +24,14 @@ The library also provides a basic retry framework, allowing requests to be retri
 <dependency>
     <groupId>net.ozwolf</groupId>
     <artifactId>consul-jaxrs</artifactId>
-    <version>1.1.1</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 
 ### Gradle
 
 ```gradle
-compile 'net.ozwolf:consul-jaxrs:1.1.1'
+compile 'net.ozwolf:consul-jaxrs:2.0.0'
 ```
 
 ### Provided Dependencies
@@ -88,15 +94,47 @@ try {
 
 The above example will randomly provide the next instance client for use.  If the request receives a server exception (ie. `5xx` response code), we will revoke that instance for 5 minutes, effectively removing it as an available instance in the pool.
 
-### Using The Retry Function
+## RxJava Functionality
 
-It is possible to prepare a retry handler from the pool.  This fluent builder will take in instructions, such as how many attempts to make, when to revoke a client instance and for how long, when the break from the retry loop.
+This library makes no attempt to implement RxJava functionality around singular uses of `Client` instances as you can adhere to standard RxJava functionality.  For example:
 
-It accepts a `RequestAction` implementation, that accepts a `ConsulJaxRsClient` instance and can throw an exception.
+```java
+return Observable.fromCallable(() -> {
+    ConsulJaxRsClient client = pool.next();
+    
+    try {
+        return client.target("/path/to/something")
+            .request()
+            .get(String.class);
+    } catch (ServerException | IOException e) {
+        client.revoke(5, TimeUnit.MINUTES);
+        throw e;
+    }
+});
+```
+
+The above code will run a single client call with revoke functionality within an Observable block.
+
+If you wish to use the JAX-RS asynchronous features directly with RxJava, you can use the `Observable.from(Future)` method to create your observable.
+
+### Retrying Requests
+
+The library provides an option to undertake retries against instances of services.  The idea behind this is to allow fault tolerance when instances may not be available and re-attempt requests.  This follows the simple premise of fluently describing on what exceptions to revoke a client instance (eg. server errors or network errors) and on what exceptions to break the retry loop on (eg. client errors).
+
+The retry handler accepts a `RetryAction` implementation that can be executed immediately or returned as an `Observable`.
+
+The retry handler uses a backing-off retry policy.  The defaults for this are an initial delay of 100ms with a 2.0 backoff factor.
+
+This can modified with the `.`
+
+#### Execute Example
+
+Immediate execution effectively runs `Observable.toBlocking().single()` straight away, forcing the observable to complete on the current thread.
 
 ```java
 return pool.retry(3)
     .revokeOn(ServerException.class, 5, TimeUnit.MINUTES)
+    .revokeOn(IOException.class, 5, TimeUnit.MINUTES)
     .breakOn(ClientException.class)
     .execute(c -> 
         c.target("/path/to/something")
@@ -105,9 +143,30 @@ return pool.retry(3)
     );
 ```
 
-In the above example, we have directed the pool to retry our request 3 times.  If we receive a server exception (ie. `5xx` response code), we will revoke that instance, effectively providing a new client instance on the next attempt.
+In the above example, we have directed the pool to retry our request 3 times.  If we receive a server exception (ie. `5xx` response code) or something indicating a network exception, we will revoke that instance, effectively providing a new client instance on the next attempt.
  
 If we receive a client exception (ie. `4xx` response code), we want the request to not retry and break from the loop (as it kind of means the error is on our end anyway).
+
+#### Observable Example
+
+```java
+Observable<String> observable = pool.retry(3)
+    .revokeOn(ServerException.class, 5, TimeUnit.MINUTES)
+    .revokeOn(IOException.class, 5, TimeUnit.MINUTES)
+    .breakOn(ClientException.class)
+    .observe(c -> 
+        c.target("/path/to/something")
+            .request()
+            .get(String.class)
+    );
+
+MySubscriber subscriber = new MySubscriber();
+Subscription subscription = observable.subscribe(subscriber);
+
+...
+```
+
+The setup for the observable is the same as above with regards to what will cause a revoke on a client and a break in the retry.  This response though will return a standard RxJava `Observable` instance of your return type.
 
 ## Instance Client Details
 
@@ -162,3 +221,4 @@ If there are no available services with the desired minimum state that haven't b
 ## Credits
 
 + [Consul Client](https://github.com/OrbitzWorldwide/consul-client)
++ [RxJava Extras](https://github.com/davidmoten/rxjava-extras)

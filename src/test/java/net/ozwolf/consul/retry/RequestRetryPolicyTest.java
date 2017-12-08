@@ -2,16 +2,19 @@ package net.ozwolf.consul.retry;
 
 import com.orbitz.consul.cache.ServiceHealthKey;
 import net.ozwolf.consul.client.ConsulJaxRsClient;
-import net.ozwolf.consul.exception.RequestFailureException;
-import org.hamcrest.Description;
-import org.hamcrest.TypeSafeMatcher;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
-import org.mockito.stubbing.Answer;
+import rx.Observable;
+import rx.Subscriber;
+import rx.Subscription;
+import rx.internal.util.BlockingUtils;
 
 import javax.ws.rs.ClientErrorException;
 import javax.ws.rs.ServerErrorException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -40,26 +43,65 @@ public class RequestRetryPolicyTest {
     }
 
     @Test
+    public void shouldObserveAction() {
+        ConsulJaxRsClient client = mock(ConsulJaxRsClient.class);
+
+        when(client.getKey()).thenReturn(ServiceHealthKey.of("test", "localhost", 1234));
+
+        Supplier<ConsulJaxRsClient> onNext = () -> client;
+
+        RequestRetryPolicy policy = new RequestRetryPolicy(1, onNext);
+
+        Observable<String> result = policy.observe(c -> c.getKey().getServiceId());
+
+        TestSubscriber<String> subscriber = new TestSubscriber<>();
+
+        Subscription subscription = result.subscribe(subscriber);
+
+        BlockingUtils.awaitForComplete(subscriber.latch, subscription);
+
+        assertThat(subscriber.value).isEqualTo("test");
+    }
+
+    @Test
     public void shouldBreakOnException() {
         ConsulJaxRsClient client = mock(ConsulJaxRsClient.class);
         when(client.getKey()).thenReturn(ServiceHealthKey.of("test", "localhost", 1234));
 
         Supplier<ConsulJaxRsClient> onNext = () -> client;
 
-        AtomicInteger calls = new AtomicInteger(0);
+        RequestAction<String> action = breakOnAction();
 
-        RequestAction<String> action = c -> {
-            Integer current = calls.getAndAdd(1);
-            if (current == 0)
-                throw new ServerErrorException(503);
-
-            throw new ClientErrorException(400);
-        };
-
-        exception.expect(failureOf(ClientErrorException.class, "[ Service ID: test ] - Request failed (Request aborted due to exception)"));
+        exception.expect(ClientErrorException.class);
+        exception.expectMessage("HTTP 400 Bad Request");
         new RequestRetryPolicy(3, onNext)
                 .breakOn(ClientErrorException.class)
                 .execute(action);
+    }
+
+    @Test
+    public void shouldBreakObserveActionOnException() {
+        ConsulJaxRsClient client = mock(ConsulJaxRsClient.class);
+        when(client.getKey()).thenReturn(ServiceHealthKey.of("test", "localhost", 1234));
+
+        Supplier<ConsulJaxRsClient> onNext = () -> client;
+
+        RequestAction<String> action = breakOnAction();
+
+        RequestRetryPolicy policy = new RequestRetryPolicy(1, onNext);
+
+        Observable<String> result = policy
+                .breakOn(ClientErrorException.class)
+                .observe(action);
+
+        TestSubscriber<String> subscriber = new TestSubscriber<>();
+
+        Subscription subscription = result.subscribe(subscriber);
+
+        BlockingUtils.awaitForComplete(subscriber.latch, subscription);
+
+        assertThat(subscriber.exception).isInstanceOf(ClientErrorException.class);
+        assertThat(((ClientErrorException) subscriber.exception).getResponse().getStatus()).isEqualTo(400);
     }
 
     @Test
@@ -69,13 +111,33 @@ public class RequestRetryPolicyTest {
 
         Supplier<ConsulJaxRsClient> onNext = () -> client;
 
-        RequestAction<String> action = c -> {
-            throw new ServerErrorException(503);
-        };
+        RequestAction<String> action = throwErrorAction();
 
-        exception.expect(failureOf(ServerErrorException.class, "[ Service ID: test ] - Request failed (Request failed due to exception)"));
+        exception.expect(ServerErrorException.class);
+        exception.expectMessage("HTTP 503 Service Unavailable");
         new RequestRetryPolicy(3, onNext)
                 .execute(action);
+    }
+
+    @Test
+    public void shouldFailObservableOnException() {
+        ConsulJaxRsClient client = mock(ConsulJaxRsClient.class);
+        when(client.getKey()).thenReturn(ServiceHealthKey.of("test", "localhost", 1234));
+
+        Supplier<ConsulJaxRsClient> onNext = () -> client;
+
+        RequestAction<String> action = throwErrorAction();
+
+        Observable<String> result = new RequestRetryPolicy(3, onNext).observe(action);
+
+        TestSubscriber<String> subscriber = new TestSubscriber<>();
+
+        Subscription subscription = result.subscribe(subscriber);
+
+        BlockingUtils.awaitForComplete(subscriber.latch, subscription);
+
+        assertThat(subscriber.exception).isInstanceOf(ServerErrorException.class);
+        assertThat(subscriber.exception.getMessage()).isEqualTo("HTTP 503 Service Unavailable");
     }
 
     @Test
@@ -86,19 +148,14 @@ public class RequestRetryPolicyTest {
         when(client1.getKey()).thenReturn(ServiceHealthKey.of("test", "localhost", 1234));
         when(client2.getKey()).thenReturn(ServiceHealthKey.of("test", "localhost", 5678));
 
-        doAnswer((Answer<Void>) i -> {
+        doAnswer(i -> {
             when(client1.isRevoked()).thenReturn(true);
             return null;
         }).when(client1).revoke(anyLong());
 
         Supplier<ConsulJaxRsClient> onNext = () -> client1.isRevoked() ? client2 : client1;
 
-        RequestAction<String> action = c -> {
-            if (c == client1)
-                throw new ServerErrorException(503);
-
-            return "success!";
-        };
+        RequestAction<String> action = revokedAction(client1);
 
         String result = new RequestRetryPolicy(3, onNext)
                 .revokeOn(ServerErrorException.class, 5, TimeUnit.MINUTES)
@@ -109,23 +166,93 @@ public class RequestRetryPolicyTest {
         verify(client1, times(1)).revoke(TimeUnit.MINUTES.toMillis(5));
     }
 
-    private static TypeSafeMatcher<RequestFailureException> failureOf(Class<? extends Exception> cause, String message) {
-        return new TypeSafeMatcher<RequestFailureException>() {
-            @Override
-            protected boolean matchesSafely(RequestFailureException e) {
-                return cause.isInstance(e.getCause()) &&
-                        e.getMessage().equals(message);
-            }
 
-            @Override
-            public void describeTo(Description description) {
-                description.appendText(String.format("[cause = <%s>, message = <%s>]", cause.getSimpleName(), message));
-            }
+    @Test
+    public void shouldRevokeClientOnObservableException() {
+        ConsulJaxRsClient client1 = mock(ConsulJaxRsClient.class);
+        ConsulJaxRsClient client2 = mock(ConsulJaxRsClient.class);
 
-            @Override
-            protected void describeMismatchSafely(RequestFailureException item, Description mismatchDescription) {
-                mismatchDescription.appendText(String.format("[cause = <%s>, message = <%s>]", item.getCause().getClass().getSimpleName(), item.getMessage()));
-            }
+        when(client1.getKey()).thenReturn(ServiceHealthKey.of("test", "localhost", 1234));
+        when(client2.getKey()).thenReturn(ServiceHealthKey.of("test", "localhost", 5678));
+
+        doAnswer(i -> {
+            when(client1.isRevoked()).thenReturn(true);
+            return null;
+        }).when(client1).revoke(anyLong());
+
+        Supplier<ConsulJaxRsClient> onNext = () -> client1.isRevoked() ? client2 : client1;
+
+        RequestAction<String> action = revokedAction(client1);
+
+        Observable<String> result = new RequestRetryPolicy(3, onNext)
+                .retryIntervalOf(500, TimeUnit.MILLISECONDS)
+                .revokeOn(ServerErrorException.class, 5, TimeUnit.MINUTES)
+                .observe(action);
+
+        Instant start = Instant.now();
+        TestSubscriber<String> subscriber = new TestSubscriber<>();
+
+        Subscription subscription = result.subscribe(subscriber);
+
+        BlockingUtils.awaitForComplete(subscriber.latch, subscription);
+
+        Duration duration = Duration.between(start, subscriber.finish);
+
+        assertThat(subscriber.value).isEqualTo("success!");
+        assertThat(TimeUnit.NANOSECONDS.toMillis(duration.getNano())).isGreaterThan(500);
+
+        verify(client1, times(1)).revoke(TimeUnit.MINUTES.toMillis(5));
+    }
+
+    private static RequestAction<String> breakOnAction() {
+        AtomicInteger calls = new AtomicInteger(0);
+
+        return c -> {
+            Integer current = calls.getAndAdd(1);
+            if (current == 0)
+                throw new ServerErrorException(503);
+
+            throw new ClientErrorException(400);
         };
+    }
+
+    private static RequestAction<String> throwErrorAction() {
+        return c -> {
+            throw new ServerErrorException(503);
+        };
+    }
+
+    private static RequestAction<String> revokedAction(ConsulJaxRsClient errorClient) {
+        return c -> {
+            if (c == errorClient)
+                throw new ServerErrorException(503);
+
+            return "success!";
+        };
+    }
+
+    private static class TestSubscriber<T> extends Subscriber<T> {
+        private T value;
+        private Throwable exception;
+        private Instant finish;
+        private final CountDownLatch latch = new CountDownLatch(1);
+
+        @Override
+        public void onCompleted() {
+            latch.countDown();
+            this.finish = Instant.now();
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+            this.exception = throwable;
+            latch.countDown();
+            this.finish = Instant.now();
+        }
+
+        @Override
+        public void onNext(T t) {
+            this.value = t;
+        }
     }
 }

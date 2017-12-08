@@ -6,7 +6,6 @@ import com.orbitz.consul.cache.ServiceHealthCache;
 import com.orbitz.consul.cache.ServiceHealthKey;
 import com.orbitz.consul.model.State;
 import com.orbitz.consul.model.health.ServiceHealth;
-import com.orbitz.consul.option.CatalogOptions;
 import com.orbitz.consul.option.QueryOptions;
 import net.ozwolf.consul.client.ConsulJaxRsClient;
 import net.ozwolf.consul.exception.ClientAvailabilityException;
@@ -18,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import javax.ws.rs.client.Client;
 import java.net.URI;
 import java.util.*;
-import java.util.function.Function;
 
 import static java.util.stream.Collectors.toSet;
 
@@ -142,7 +140,7 @@ public class ConsulJaxRsClientPool implements ConsulCache.Listener<ServiceHealth
         return this;
     }
 
-    public ConsulJaxRsClientPool withHealthCacheProvider(ServiceHealthCacheProvider provider){
+    public ConsulJaxRsClientPool withHealthCacheProvider(ServiceHealthCacheProvider provider) {
         this.serviceCacheProvider = provider;
         return this;
     }
@@ -221,7 +219,7 @@ public class ConsulJaxRsClientPool implements ConsulCache.Listener<ServiceHealth
      */
     public void connect() throws Exception {
         this.serviceCache = serviceCacheProvider == null ?
-                ServiceHealthCache.newCache(this.consul.healthClient(), serviceId, false, CatalogOptions.BLANK, pollRate) :
+                ServiceHealthCache.newCache(this.consul.healthClient(), serviceId, false, QueryOptions.BLANK, pollRate) :
                 serviceCacheProvider.get(this.consul.healthClient(), serviceId, pollRate);
         this.serviceCache.addListener(this);
         this.serviceCache.start();
@@ -252,16 +250,19 @@ public class ConsulJaxRsClientPool implements ConsulCache.Listener<ServiceHealth
     public void notify(Map<ServiceHealthKey, ServiceHealth> instances) {
         Set<ConsulJaxRsClient> updated = new HashSet<>();
 
-        instances.entrySet().forEach(e -> {
-            Optional<ConsulJaxRsClient> previous = clients.stream().filter(c -> c.getKey().equals(e.getKey())).findFirst();
-            if (previous.isPresent()) {
-                updated.add(previous.get().update(e.getValue()));
-            } else {
-                updated.add(new ConsulJaxRsClient(e.getKey(), baseClient, scheme).update(e.getValue()));
-            }
-        });
+        Optional.ofNullable(instances)
+                .ifPresent(i -> {
+                    i.forEach((key, value) -> {
+                        Optional<ConsulJaxRsClient> previous = clients.stream().filter(c -> c.getKey().equals(key)).findFirst();
+                        if (previous.isPresent()) {
+                            updated.add(previous.get().update(value));
+                        } else {
+                            updated.add(new ConsulJaxRsClient(key, baseClient, scheme).update(value));
+                        }
+                    });
 
-        this.clients = updated;
+                    this.clients = updated;
+                });
     }
 
     private static Map<State, Double> defaultWeightings() {
