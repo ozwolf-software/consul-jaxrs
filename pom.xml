@@ -77,9 +77,9 @@
     </distributionManagement>
 
     <scm>
-        <connection>scm:git:git://github.com/ozwolf-software/jersey2-consul.git</connection>
-        <developerConnection>scm:git:git@github.com:ozwolf-software/jersey2-consul.git</developerConnection>
-        <url>https://github.com/ozwolf-software/jersey2-consul</url>
+        <connection>scm:git:git://github.com/ozwolf-software/consul-jaxrs.git</connection>
+        <developerConnection>scm:git:git@github.com:ozwolf-software/consul-jaxrs.git</developerConnection>
+        <url>https://github.com/ozwolf-software/consul-jaxrs</url>
         <tag>v${project.version}</tag>
     </scm>
 
