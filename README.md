@@ -1,6 +1,6 @@
 # Consul JAX RS
 
-[![Status](https://img.shields.io/badge/status-eol-silver.svg?style=flat-square)](https://img.shields.io/badge/status-eol-silver.svg)
+[![Status](https://img.shields.io/badge/status-eol-red.svg?style=flat-square)](https://img.shields.io/badge/status-eol-red.svg)
 [![Travis](https://img.shields.io/travis/ozwolf-software/consul-jaxrs.svg?style=flat-square)](https://travis-ci.org/ozwolf-software/consul-jaxrs)
 [![Maven Central](https://img.shields.io/maven-central/v/net.ozwolf/consul-jaxrs.svg?style=flat-square)](http://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22net.ozwolf%22%20AND%20a%3A%22consul-jaxrs%22)
 [![Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
@@ -10,6 +10,10 @@ Consul JAX RS is a Java library that provides a Consul-backed service discovery 
 The design goal behind this library is to allow services that use a JAX RS-based client structure to utilise client-side service discovery and fault tolerance handling in combination with the Consul system.
 
 The library also provides a basic retry framework, allowing requests to be retried and revoking client instances on errors appropriately.  However, if you want to use a more robust solution, then a library like [Failsafe](https://github.com/jhalterman/failsafe) might be more suitable.
+
+## EOL Notice
+
+While this library proved useful in the past for a consumer-based load balancing, more traditional load balancing techniques and technologies utilising Consul proved to be more robust and consistently managable.
 
 ## Changes From Version 1.x
 
