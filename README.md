@@ -1,6 +1,6 @@
 # Consul JAX RS
 
-[![Status](https://img.shields.io/badge/status-eol.svg?style=flat-square)](https://img.shields.io/badge/status-eol.svg)
+[![Status](https://img.shields.io/badge/status-eol-silver.svg?style=flat-square)](https://img.shields.io/badge/status-eol-silver.svg)
 [![Travis](https://img.shields.io/travis/ozwolf-software/consul-jaxrs.svg?style=flat-square)](https://travis-ci.org/ozwolf-software/consul-jaxrs)
 [![Maven Central](https://img.shields.io/maven-central/v/net.ozwolf/consul-jaxrs.svg?style=flat-square)](http://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22net.ozwolf%22%20AND%20a%3A%22consul-jaxrs%22)
 [![Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
